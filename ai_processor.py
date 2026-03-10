@@ -19,8 +19,8 @@ class DailyBriefing:
     learning_agenda: str
     raw_items: List[NewsItem]
 
-# GLM API配置
-GLM_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+# DeepSeek API配置
+DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
 
 SYSTEM_PROMPT = """You are a senior research analyst providing daily intelligence briefings for a business professional who wants deep, academic-quality analysis. Your reader is building AI expertise and needs to understand both the global economic context and cutting-edge AI developments.
 
@@ -145,8 +145,8 @@ Based on today's briefing, here's a prioritized learning plan:
 """
 
 async def call_glm_api(prompt: str) -> Optional[str]:
-    """调用GLM-5 API"""
-    api_key = os.getenv("GLM_API_KEY")
+    """调用DEEPSEEK API"""
+  api_key = os.getenv("DEEPSEEK_API_KEY")
     
     if not api_key:
         print("❌ 未配置 GLM_API_KEY")
@@ -158,7 +158,7 @@ async def call_glm_api(prompt: str) -> Optional[str]:
     }
     
     payload = {
-        "model": "glm-5",  # GLM-5最新模型
+        "model": "deepseek-chat",
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
@@ -170,7 +170,7 @@ async def call_glm_api(prompt: str) -> Optional[str]:
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                GLM_API_URL, 
+              DEEPSEEK_API_URL,
                 headers=headers, 
                 json=payload,
                 timeout=aiohttp.ClientTimeout(total=120)  # 增加超时
