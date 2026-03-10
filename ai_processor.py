@@ -1,6 +1,6 @@
 """
 AI处理模块 - Academic-Grade Analysis
-使用GLM-5生成学术级深度分析报告
+使用DeepSeek生成学术级深度分析报告
 """
 
 import os
@@ -144,12 +144,12 @@ Based on today's briefing, here's a prioritized learning plan:
 - If source material is weak for a section, acknowledge it and provide general context instead of making things up
 """
 
-async def call_glm_api(prompt: str) -> Optional[str]:
-    """调用DEEPSEEK API"""
-  api_key = os.getenv("DEEPSEEK_API_KEY")
+async def call_deepseek_api(prompt: str) -> Optional[str]:
+    """调用DeepSeek API"""
+    api_key = os.getenv("DEEPSEEK_API_KEY")
     
     if not api_key:
-        print("❌ 未配置 GLM_API_KEY")
+        print("❌ 未配置 DEEPSEEK_API_KEY")
         return None
     
     headers = {
@@ -164,27 +164,27 @@ async def call_glm_api(prompt: str) -> Optional[str]:
             {"role": "user", "content": prompt}
         ],
         "temperature": 0.7,
-        "max_tokens": 4000  # 增加输出长度
+        "max_tokens": 4000
     }
     
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
-              DEEPSEEK_API_URL,
-                headers=headers, 
+                DEEPSEEK_API_URL,
+                headers=headers,
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=120)  # 增加超时
+                timeout=aiohttp.ClientTimeout(total=120)
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    print(f"❌ GLM API错误 [{response.status}]: {error_text[:300]}")
+                    print(f"❌ DeepSeek API错误 [{response.status}]: {error_text[:300]}")
                     return None
                 
                 data = await response.json()
                 return data["choices"][0]["message"]["content"]
                 
     except Exception as e:
-        print(f"❌ GLM API调用失败: {str(e)}")
+        print(f"❌ DeepSeek API调用失败: {str(e)}")
         return None
 
 async def generate_briefing(items: List[NewsItem]) -> Optional[DailyBriefing]:
@@ -206,7 +206,7 @@ Always include original English quotes with Chinese translations.
 If certain sections lack strong source material, acknowledge this and provide relevant context or background instead."""
 
     print("🤖 正在生成深度分析（预计60-90秒）...")
-    ai_response = await call_glm_api(user_prompt)
+    ai_response = await call_deepseek_api(user_prompt)
     
     if not ai_response:
         return None
@@ -228,13 +228,9 @@ def extract_section(text: str, section_keyword: str) -> str:
     if not text:
         return ""
     
-    # 多种匹配模式，按优先级尝试
     patterns = [
-        # 模式1: ## + emoji + 关键词 + 内容 + 下一个##或结束
         rf"##\s*[^\n]*{section_keyword}[^\n]*\n(.*?)(?=\n##\s|\n---\s*\n##|\Z)",
-        # 模式2: 关键词在行首 + 内容 + 下一个##或结束
         rf"^[#]*\s*[^\n]*{section_keyword}[^\n]*\n(.*?)(?=\n##|\Z)",
-        # 模式3: 更宽松的匹配
         rf"{section_keyword}[^\n]*\n(.*?)(?=\n##|\n---|\Z)",
     ]
     
@@ -242,11 +238,9 @@ def extract_section(text: str, section_keyword: str) -> str:
         match = re.search(pattern, text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
         if match:
             result = match.group(1).strip()
-            # 确保提取到的内容有意义（至少10个字符）
             if len(result) > 10:
                 return result
     
-    # 最后尝试：简单分割法
     lines = text.split('\n')
     capture = False
     captured = []
@@ -265,7 +259,6 @@ def extract_section(text: str, section_keyword: str) -> str:
         if len(result) > 10:
             return result
     
-    # 如果是Executive Summary且完全找不到，返回原文前500字符
     if section_keyword == "Executive Summary":
         return text[:500] + "..." if len(text) > 500 else text
     
@@ -279,9 +272,9 @@ if __name__ == "__main__":
             NewsItem(
                 title="Fed Signals Potential Rate Cut in June",
                 summary="Federal Reserve officials indicated openness to cutting interest rates...",
-                source="Financial Times",
+                source="Reuters",
                 category="economy",
-                url="https://ft.com/example",
+                url="https://reuters.com/example",
                 published="2024-01-15",
                 tier="top"
             ),
