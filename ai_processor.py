@@ -4,9 +4,11 @@ AI处理模块 - Academic-Grade Analysis
 """
 
 import os
+import re
 import aiohttp
 from typing import List, Optional
 from dataclasses import dataclass
+from datetime import datetime
 from sources import NewsItem, format_for_ai
 
 @dataclass
@@ -22,126 +24,112 @@ class DailyBriefing:
 # DeepSeek API配置
 DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
 
-SYSTEM_PROMPT = """You are a senior research analyst providing daily intelligence briefings for a business professional who wants deep, academic-quality analysis. Your reader is building AI expertise and needs to understand both the global economic context and cutting-edge AI developments.
+SYSTEM_PROMPT = """你是一位高级研究分析师，为商业专业人士提供每日情报简报。读者正在建立AI专业知识，需要了解全球经济背景和前沿AI发展。
 
-## YOUR ANALYSIS STANDARDS
+## 分析标准
 
-1. **Depth over breadth**: Better to deeply analyze 3-5 significant items than superficially cover everything
-2. **Global perspective**: Connect dots across regions (US, EU, China, emerging markets)
-3. **First-principles thinking**: Explain WHY something matters, not just WHAT happened
-4. **Actionable learning**: Every section must include specific learning recommendations
+1. 深度优于广度：深入分析3-5个重要事项，而非泛泛而谈
+2. 全球视角：连接美国、欧盟、中国、新兴市场的动态
+3. 第一性原理：解释WHY（为什么重要），而非仅仅WHAT（发生了什么）
+4. 可操作的学习：每个部分必须包含具体的学习建议
 
-## OUTPUT FORMAT (STRICT - Follow exactly)
-
----
+## 输出格式（严格遵循）
 
 ## 📋 Executive Summary | 执行摘要
 
-[2-3 sentences capturing the most significant developments and their interconnections. Write in English first, then Chinese translation.]
+[用2-3句话概括今日最重要的发展及其关联。先写英文，再写中文翻译。]
 
-**English:** [Your summary]
+**English:** [英文摘要]
 
-**中文翻译：** [Chinese translation]
-
----
-
-## 🌍 Global Economy & Policy Analysis | 全球经济与政策分析
-
-For each significant development (select 2-3 most important):
-
-### [Topic Title]
-
-**Original Context | 原文引用：**
-> "[Quote key sentence from source in English]"
-> 
-> 中文翻译："[Chinese translation of the quote]"
-
-**Deep Analysis | 深度解析：**
-[Explain: (1) What happened (2) Why it matters globally (3) Impact on different stakeholders (4) Historical context or precedent. Write 150-200 words mixing English terms with Chinese explanation.]
-
-**Key Concepts | 关键概念：**
-- **[English Term]** ([Chinese translation]): [One-sentence explanation]
-- **[English Term]** ([Chinese translation]): [One-sentence explanation]
-
-**Learning Path | 学习路径：**
-- 📖 Recommended reading: [Specific book/paper/resource]
-- 🔗 Further exploration: [Related topic to research]
+**中文翻译：** [中文翻译]
 
 ---
 
-## 🤖 AI Technology & Industry Analysis | AI技术与产业分析
+## 🌍 Global Economy & Policy | 全球经济与政策
 
-For each significant development (select 2-3 most important):
+选择2-3个最重要的发展：
 
-### [Topic Title]
+### [主题标题]
 
-**Original Context | 原文引用：**
-> "[Quote key sentence from source in English]"
-> 
-> 中文翻译："[Chinese translation of the quote]"
+**原文引用：**
+> "[引用来源中的关键句子]"
 
-**Technical Analysis | 技术解析：**
-[Explain: (1) What the technology/product does (2) Technical innovation or breakthrough (3) Competitive landscape implications (4) Potential applications. Write 150-200 words.]
+**深度解析：**
+[解释：(1)发生了什么 (2)为什么重要 (3)对不同利益相关者的影响 (4)历史背景。150-200字。]
 
-**Key Concepts | 关键概念：**
-- **[Technical Term]** ([Chinese]): [Explanation]
-- **[Technical Term]** ([Chinese]): [Explanation]
+**关键概念：**
+- **[术语]**：[一句话解释]
 
-**Learning Path | 学习路径：**
-- 📖 Foundation: [What to learn first]
-- 🛠️ Hands-on: [How to experiment with this]
+**学习路径：**
+- 📖 推荐阅读：[具体资源]
+- 🔗 延伸探索：[相关主题]
+
+---
+
+## 🤖 AI Technology & Industry | AI技术与产业
+
+选择2-3个最重要的发展：
+
+### [主题标题]
+
+**原文引用：**
+> "[引用来源中的关键句子]"
+
+**技术解析：**
+[解释：(1)技术/产品功能 (2)技术创新点 (3)竞争格局影响 (4)潜在应用。150-200字。]
+
+**关键概念：**
+- **[术语]**：[解释]
+
+**学习路径：**
+- 📖 基础学习：[先学什么]
+- 🛠️ 动手实践：[如何尝试]
 
 ---
 
 ## 📚 AI Research Frontiers | AI学术前沿
 
-For each significant paper/research (select 2-3 most important):
+选择2-3篇重要论文/研究：
 
-### [Paper/Research Title]
+### [论文/研究标题]
 
-**Original Abstract | 原文摘要：**
-> "[Key sentence from abstract in English]"
-> 
-> 中文翻译："[Chinese translation]"
+**摘要引用：**
+> "[摘要中的关键句子]"
 
-**Research Significance | 研究意义：**
-[Explain: (1) What problem it solves (2) Novel approach/method (3) Results and implications (4) Limitations. Write 150-200 words in accessible language.]
+**研究意义：**
+[解释：(1)解决什么问题 (2)新方法 (3)结果和影响 (4)局限性。150-200字。]
 
-**Key Concepts | 关键概念：**
-- **[Technical Term]** ([Chinese]): [Explanation for non-specialists]
+**关键概念：**
+- **[术语]**：[通俗解释]
 
-**Learning Path | 学习路径：**
-- 📖 Prerequisites: [What background knowledge is needed]
-- 📄 Related papers: [1-2 foundational papers to read first]
+**学习路径：**
+- 📖 前置知识：[需要什么背景]
+- 📄 相关论文：[1-2篇基础论文]
 
 ---
 
-## 📚 Today's Learning Agenda | 今日学习议程
+## 🎯 Today's Learning Agenda | 今日学习议程
 
-Based on today's briefing, here's a prioritized learning plan:
+### 🎯 Priority 1: [最重要的概念]
+- 时间：[X分钟]
+- 行动：[具体学习行动]
+- 资源：[具体链接或资源]
 
-### 🎯 Priority 1: [Most important concept to understand]
-- Time needed: [X minutes]
-- Action: [Specific learning action]
-- Resource: [Specific link or resource]
+### 🎯 Priority 2: [第二优先]
+- 时间：[X分钟]
+- 行动：[具体学习行动]
+- 资源：[具体链接或资源]
 
-### 🎯 Priority 2: [Second priority]
-- Time needed: [X minutes]
-- Action: [Specific learning action]
-- Resource: [Specific link or resource]
-
-### 💡 Quick Wins (5-minute learnings):
-1. [Quick concept to grasp]
-2. [Quick concept to grasp]
+### 💡 Quick Wins (5分钟速学):
+1. [快速概念1]
+2. [快速概念2]
 
 ---
 
-## IMPORTANT RULES:
-- Always include English original quotes with Chinese translations
-- Use precise technical terminology (with Chinese glosses)
-- Be specific - avoid vague statements like "this is important"
-- Connect economic and AI topics where relevant
-- If source material is weak for a section, acknowledge it and provide general context instead of making things up
+## 重要规则：
+- 使用精确的技术术语
+- 具体化，避免"这很重要"这类空话
+- 如果某部分素材不足，承认并提供相关背景
 """
 
 async def call_deepseek_api(prompt: str) -> Optional[str]:
@@ -187,23 +175,65 @@ async def call_deepseek_api(prompt: str) -> Optional[str]:
         print(f"❌ DeepSeek API调用失败: {str(e)}")
         return None
 
+
+def extract_section(text: str, section_keyword: str) -> str:
+    """从AI响应中提取特定章节"""
+    if not text:
+        return ""
+    
+    # 方法1：正则匹配 ## 标题格式
+    patterns = [
+        rf"##\s*[^\n]*{section_keyword}[^\n]*\n(.*?)(?=\n##|\Z)",
+        rf"#\s*[^\n]*{section_keyword}[^\n]*\n(.*?)(?=\n#|\Z)",
+        rf"{section_keyword}[^\n]*\n(.*?)(?=\n##|\n#|\n---|\Z)",
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+        if match:
+            result = match.group(1).strip()
+            if len(result) > 20:
+                return result
+    
+    # 方法2：按行扫描
+    lines = text.split('\n')
+    capture = False
+    captured = []
+    
+    for line in lines:
+        lower_line = line.lower()
+        # 检测是否是目标章节的开始
+        if section_keyword.lower() in lower_line and '#' in line:
+            capture = True
+            continue
+        # 检测是否到达下一个章节
+        if capture:
+            if line.strip().startswith('#') and section_keyword.lower() not in lower_line:
+                break
+            if line.strip() == '---':
+                continue
+            captured.append(line)
+    
+    if captured:
+        result = '\n'.join(captured).strip()
+        if len(result) > 20:
+            return result
+    
+    return ""
+
+
 async def generate_briefing(items: List[NewsItem]) -> Optional[DailyBriefing]:
     """生成完整的深度分析报告"""
-    from datetime import datetime
-    
     formatted_content = format_for_ai(items)
     
-    user_prompt = f"""Based on today's intelligence gathered from global sources, generate a comprehensive research briefing.
+    user_prompt = f"""基于今日收集的全球信息源，生成一份研究简报。
 
-TODAY'S DATE: {datetime.now().strftime("%Y-%m-%d")}
+今日日期: {datetime.now().strftime("%Y-%m-%d")}
 
-SOURCE MATERIAL:
+素材来源:
 {formatted_content}
 
-Generate the briefing following the exact format specified in your system instructions. 
-Focus on quality over quantity - deeply analyze the most significant items rather than covering everything superficially.
-Always include original English quotes with Chinese translations.
-If certain sections lack strong source material, acknowledge this and provide relevant context or background instead."""
+请严格按照系统提示中的格式生成简报。深入分析最重要的内容，而非泛泛覆盖所有内容。"""
 
     print("🤖 正在生成深度分析（预计60-90秒）...")
     ai_response = await call_deepseek_api(user_prompt)
@@ -211,58 +241,44 @@ If certain sections lack strong source material, acknowledge this and provide re
     if not ai_response:
         return None
     
+    print("✅ AI分析完成")
+    print(f"📝 响应长度: {len(ai_response)} 字符")
+    
+    # 提取各部分
+    executive = extract_section(ai_response, "Executive Summary") or extract_section(ai_response, "执行摘要")
+    economy = extract_section(ai_response, "Global Economy") or extract_section(ai_response, "全球经济")
+    ai_tech = extract_section(ai_response, "AI Technology") or extract_section(ai_response, "AI技术")
+    ai_research = extract_section(ai_response, "AI Research") or extract_section(ai_response, "AI学术")
+    learning = extract_section(ai_response, "Learning Agenda") or extract_section(ai_response, "学习议程")
+    
+    # 统计提取结果
+    extracted = sum(1 for x in [executive, economy, ai_tech, ai_research, learning] if x)
+    print(f"📊 成功提取 {extracted}/5 个章节")
+    
+    # 如果提取全部失败，使用完整响应
+    if extracted == 0:
+        print("⚠️ 分段提取失败，使用完整响应作为内容")
+        # 将完整响应放入各个部分
+        return DailyBriefing(
+            date=datetime.now().strftime("%Y-%m-%d"),
+            executive_summary=ai_response,
+            economy_analysis="",
+            ai_industry_analysis="",
+            ai_research_analysis="",
+            learning_agenda="",
+            raw_items=items
+        )
+    
     return DailyBriefing(
         date=datetime.now().strftime("%Y-%m-%d"),
-        executive_summary=extract_section(ai_response, "Executive Summary"),
-        economy_analysis=extract_section(ai_response, "Global Economy"),
-        ai_industry_analysis=extract_section(ai_response, "AI Technology"),
-        ai_research_analysis=extract_section(ai_response, "AI Research"),
-        learning_agenda=extract_section(ai_response, "Learning Agenda"),
+        executive_summary=executive if executive else "请查看下方详细分析",
+        economy_analysis=economy if economy else "",
+        ai_industry_analysis=ai_tech if ai_tech else "",
+        ai_research_analysis=ai_research if ai_research else "",
+        learning_agenda=learning if learning else "",
         raw_items=items
     )
 
-def extract_section(text: str, section_keyword: str) -> str:
-    """从AI响应中提取特定章节 - 增强版"""
-    import re
-    
-    if not text:
-        return ""
-    
-    patterns = [
-        rf"##\s*[^\n]*{section_keyword}[^\n]*\n(.*?)(?=\n##\s|\n---\s*\n##|\Z)",
-        rf"^[#]*\s*[^\n]*{section_keyword}[^\n]*\n(.*?)(?=\n##|\Z)",
-        rf"{section_keyword}[^\n]*\n(.*?)(?=\n##|\n---|\Z)",
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
-        if match:
-            result = match.group(1).strip()
-            if len(result) > 10:
-                return result
-    
-    lines = text.split('\n')
-    capture = False
-    captured = []
-    
-    for line in lines:
-        if section_keyword.lower() in line.lower() and ('#' in line or '---' in line):
-            capture = True
-            continue
-        if capture:
-            if line.strip().startswith('##') or line.strip() == '---':
-                break
-            captured.append(line)
-    
-    if captured:
-        result = '\n'.join(captured).strip()
-        if len(result) > 10:
-            return result
-    
-    if section_keyword == "Executive Summary":
-        return text[:500] + "..." if len(text) > 500 else text
-    
-    return ""
 
 if __name__ == "__main__":
     import asyncio
@@ -270,8 +286,8 @@ if __name__ == "__main__":
     async def test():
         test_items = [
             NewsItem(
-                title="Fed Signals Potential Rate Cut in June",
-                summary="Federal Reserve officials indicated openness to cutting interest rates...",
+                title="Fed Signals Potential Rate Cut",
+                summary="Federal Reserve officials indicated openness to cutting rates...",
                 source="Reuters",
                 category="economy",
                 url="https://reuters.com/example",
@@ -283,6 +299,5 @@ if __name__ == "__main__":
         briefing = await generate_briefing(test_items)
         if briefing:
             print(f"生成完成: {briefing.date}")
-            print(f"摘要: {briefing.executive_summary[:200]}...")
     
     asyncio.run(test())
